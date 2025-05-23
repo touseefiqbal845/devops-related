@@ -1,1 +1,39 @@
+name: Backend Deployment  
+
+on:  
+  push:  
+    branches:  
+      - main  
+
+jobs:  
+  deploy:  
+    runs-on: ubuntu-latest  
+
+    steps:  
+      - name: Checkout code  
+        uses: actions/checkout@v2  
+
+      - name: Set up SSH key  
+        run: |  
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > private_key  
+          chmod 600 private_key  
+
+      - name: Upgrade Node.js to v18  
+        run: |  
+          # Add NodeSource repository and install Node.js  
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -  
+          sudo apt-get install -y nodejs  
+
+      - name: Deploy to VM  
+        run: |  
+          ssh -o StrictHostKeyChecking=no -i private_key ubuntu@${{ secrets.EC2_INSTANCE_IP }} << 'EOF'  
+          set -e  # Exit immediately if a command fails  
+          cd ~/Demo-Backend-Deployment || { echo "Directory not found"; exit 1; }  
+          git pull origin main  
+          npm install  
+          pm2 restart all  
+          EOF
+
+      - name: Clean up  
+        run: rm private_key  # Ensure the private key is removed for security  
 
